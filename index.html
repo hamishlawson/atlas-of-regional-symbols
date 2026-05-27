@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Atlas of Regional Symbols</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml"/>
+<link rel="icon" href="favicon.png" type="image/png"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+
+  #map { position: fixed; inset: 0; }
+
+  .selected-icon { filter: drop-shadow(0 0 5px rgba(0,0,0,.55)) brightness(1.08); }
+
+  /* ── Rank filter ───────────────────────────────────────── */
+  #rank-ctrl {
+    position: fixed;
+    top: 10px; right: 10px;
+    z-index: 500;
+    display: flex;
+    gap: 3px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 1px 5px rgba(0,0,0,.25);
+  }
+  .rank-btn {
+    padding: 3px 9px;
+    font-size: .72rem;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    color: #999;
+    background: transparent;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+  .rank-btn.on { background: #1a1a2e; color: #fff; }
+
+  /* ── Info panel ────────────────────────────────────────── */
+  #info-panel {
+    position: fixed;
+    z-index: 1000;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 640px) {
+    #info-panel {
+      bottom: 0; left: 0; right: 0;
+      max-height: 65vh;
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,.18);
+      transform: translateY(100%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+    }
+    #info-panel.open { transform: translateY(0); }
+    #panel-handle { display: block; }
+    #panel-close  { display: none !important; }
+  }
+
+  @media (min-width: 641px) {
+    #info-panel {
+      top: 0; bottom: 0; right: 0;
+      width: 300px;
+      box-shadow: -4px 0 20px rgba(0,0,0,.14);
+      transform: translateX(110%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+    }
+    #info-panel.open { transform: translateX(0); }
+    #panel-handle { display: none; }
+    #panel-close  { display: flex !important; }
+    #panel-body   { padding: 48px 28px 40px; }
+    #panel-arms   { width: 150px; height: 150px; }
+  }
+
+  #panel-handle {
+    flex-shrink: 0;
+    padding: 12px 0 6px;
+    cursor: pointer;
+    text-align: center;
+  }
+  #panel-handle::before {
+    content: '';
+    display: inline-block;
+    width: 36px; height: 4px;
+    background: #ccc;
+    border-radius: 2px;
+  }
+
+  #panel-close {
+    position: absolute;
+    top: 12px; right: 12px;
+    width: 28px; height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: #f0f0f0;
+    cursor: pointer;
+    font-size: 13px;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    line-height: 1;
+    z-index: 1;
+  }
+  #panel-close:hover { background: #ddd; }
+
+  #panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 24px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #panel-arms {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+    margin-bottom: 18px;
+    flex-shrink: 0;
+  }
+
+  #panel-entity {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #111;
+    text-align: center;
+    margin: 0 0 6px;
+    line-height: 1.3;
+  }
+  #panel-entity a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted #aaa;
+  }
+  #panel-entity a:hover { border-bottom-color: #555; }
+
+  #panel-region {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #bbb;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  #panel-desc {
+    font-size: .85rem;
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+
+  #panel-note {
+    font-size: .85rem;
+    color: #444;
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="rank-ctrl">
+  <button class="rank-btn on" data-rank="1">Realms</button>
+  <button class="rank-btn on" data-rank="2">Provinces</button>
+  <button class="rank-btn on" data-rank="3">Lordships</button>
+</div>
+
+<div id="info-panel">
+  <div id="panel-handle"></div>
+  <button id="panel-close">&#x2715;</button>
+  <div id="panel-body">
+    <img id="panel-arms" src="" alt="Arms"/>
+    <div id="panel-entity"></div>
+    <div id="panel-region"></div>
+    <div id="panel-desc"></div>
+    <div id="panel-note"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+const map = L.map('map', { zoomControl: false }).setView([50, 10], 5);
+
+const tileLayers = {
+  light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 20,
+  }),
+  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 20,
+  }),
+};
+let currentTheme = 'light';
+tileLayers.light.addTo(map);
+
+const ThemeControl = L.Control.extend({
+  onAdd() {
+    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+    const a = L.DomUtil.create('a', '', div);
+    a.href = '#'; a.title = 'Toggle theme';
+    a.style.cssText = 'font-size:16px; line-height:26px !important; text-align:center;';
+    a.innerHTML = '🌙';
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.on(a, 'click', e => {
+      L.DomEvent.preventDefault(e);
+      const next = currentTheme === 'light' ? 'dark' : 'light';
+      map.removeLayer(tileLayers[currentTheme]);
+      tileLayers[next].addTo(map);
+      currentTheme = next;
+      a.innerHTML = next === 'dark' ? '☀️' : '🌙';
+    });
+    return div;
+  },
+});
+new ThemeControl({ position: 'topleft' }).addTo(map);
+L.control.zoom({ position: 'topleft' }).addTo(map);
+
+const cluster = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 40 });
+map.addLayer(cluster);
+
+// ── Rank filter ───────────────────────────────────────────────────────────────
+
+const RANK_SIZE     = { 1: 96, 2: 72, 3: 64 };
+const enabledRanks  = new Set([1, 2, 3]);
+const markerIndex   = {};
+const iconCache     = {};
+const hiddenMarkers = new Set();
+
+document.querySelectorAll('.rank-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const rank = parseInt(btn.dataset.rank, 10);
+    if (enabledRanks.has(rank)) { enabledRanks.delete(rank); btn.classList.remove('on'); }
+    else                        { enabledRanks.add(rank);    btn.classList.add('on'); }
+    applyFilter();
+  });
+});
+
+function applyFilter() {
+  const toAdd = [], toRemove = [];
+  for (const id in markerIndex) {
+    const { marker, feature } = markerIndex[id];
+    const rank   = feature.properties.rank || 3;
+    const show   = enabledRanks.has(rank);
+    const hidden = hiddenMarkers.has(id);
+    if (show && hidden)   { toAdd.push(marker);    hiddenMarkers.delete(id); }
+    if (!show && !hidden) { toRemove.push(marker); hiddenMarkers.add(id); }
+  }
+  if (toRemove.length) cluster.removeLayers(toRemove);
+  if (toAdd.length)    cluster.addLayers(toAdd);
+}
+
+function getIcon(id, rank) {
+  const sz = RANK_SIZE[rank] || 64;
+  if (!iconCache[id]) {
+    iconCache[id] = L.icon({
+      iconUrl: `icons/${id}.png`,
+      iconSize: [sz, sz],
+      iconAnchor: [sz / 2, sz / 2],
+    });
+  }
+  return iconCache[id];
+}
+
+// ── Info panel ────────────────────────────────────────────────────────────────
+
+let currentMarker = null;
+const panel = document.getElementById('info-panel');
+
+function openPanel(feature) {
+  const p   = feature.properties;
+  const img = document.getElementById('panel-arms');
+
+  // Show the PNG icon immediately as a placeholder, then upgrade to full image_url
+  img.src = `icons/${feature.id}.png`;
+  if (p.image_url) {
+    const full = new Image();
+    full.onload = () => { img.src = p.image_url; };
+    full.src = p.image_url;
+  }
+
+  // Entity name — linked to Wikidata if a Q-id is present
+  const entityEl   = document.getElementById('panel-entity');
+  const entityName = p.entity || p.name || '';
+  entityEl.innerHTML = '';
+  if (p.wikidata && /^Q\d+$/i.test(p.wikidata)) {
+    const a = document.createElement('a');
+    a.href    = `https://www.wikidata.org/wiki/${p.wikidata}`;
+    a.target  = '_blank';
+    a.rel     = 'noopener';
+    a.textContent = entityName;
+    entityEl.appendChild(a);
+  } else {
+    entityEl.textContent = entityName;
+  }
+
+  document.getElementById('panel-region').textContent = p.region || '';
+
+  const desc = document.getElementById('panel-desc');
+  desc.textContent   = p.wikidata_description || '';
+  desc.style.display = p.wikidata_description ? '' : 'none';
+
+  const note = document.getElementById('panel-note');
+  note.textContent   = p.note || '';
+  note.style.display = p.note ? '' : 'none';
+
+  panel.classList.add('open');
+}
+
+function closePanel() {
+  panel.classList.remove('open');
+  if (currentMarker) {
+    currentMarker.getElement()?.classList.remove('selected-icon');
+    currentMarker = null;
+  }
+}
+
+document.getElementById('panel-handle').addEventListener('click', closePanel);
+document.getElementById('panel-close').addEventListener('click', closePanel);
+map.on('click', closePanel);
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+
+fetch('territories.json')
+  .then(r => r.json())
+  .then(({ features }) => {
+    features.forEach(feature => {
+      const [lon, lat] = feature.geometry.coordinates;
+      const p      = feature.properties;
+      const icon   = getIcon(feature.id, p.rank);
+      const marker = L.marker([lat, lon], { icon });
+
+      marker.on('click', () => {
+        if (currentMarker) currentMarker.getElement()?.classList.remove('selected-icon');
+        currentMarker = marker;
+        marker.getElement()?.classList.add('selected-icon');
+        openPanel(feature);
+      });
+
+      markerIndex[feature.id] = { marker, feature };
+      cluster.addLayer(marker);
+    });
+  });
+</script>
+</body>
+</html>
