@@ -322,7 +322,7 @@ function openPanel(feature) {
 
   // Entity name — linked to Wikidata if a Q-id is present
   const entityEl   = document.getElementById('panel-entity');
-  const entityName = p.entity || p.name || '';
+  const entityName = p.entity || '';
   entityEl.innerHTML = '';
   if (p.wikidata && /^Q\d+$/i.test(p.wikidata)) {
     const a = document.createElement('a');
