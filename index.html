@@ -295,7 +295,7 @@ function getIcon(id, rank) {
   const sz = RANK_SIZE[rank] || 64;
   if (!iconCache[id]) {
     iconCache[id] = L.icon({
-      iconUrl: `icons/${id}.png`,
+      iconUrl: `icons/${id}_${sz}.png`,
       iconSize: [sz, sz],
       iconAnchor: [sz / 2, sz / 2],
     });
@@ -313,7 +313,7 @@ function openPanel(feature) {
   const img = document.getElementById('panel-arms');
 
   // Show the PNG icon immediately as a placeholder, then upgrade to full image_url
-  img.src = `icons/${feature.id}.png`;
+  img.src = `icons/${feature.id}_${RANK_SIZE[p.rank] || 64}.png`;
   if (p.image_url) {
     const full = new Image();
     full.onload = () => { img.src = p.image_url; };
