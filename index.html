@@ -79,8 +79,7 @@
     #info-panel.open { transform: translateX(0); }
     #panel-handle { display: none; }
     #panel-close  { display: flex !important; }
-    #panel-body   { padding: 48px 28px 40px; }
-    #panel-arms   { width: 150px; height: 150px; }
+    #panel-body   { padding: 16px 28px 40px; }
   }
 
   #panel-handle {
@@ -124,11 +123,11 @@
   }
 
   #panel-arms {
-    width: 120px;
-    height: 120px;
+    width: 100%;
+    height: auto;
     object-fit: contain;
-    margin-bottom: 18px;
-    flex-shrink: 0;
+    display: block;
+    margin-bottom: 12px;
   }
 
   #panel-entity {
@@ -146,31 +145,51 @@
   }
   #panel-entity a:hover { border-bottom-color: #555; }
 
-  #panel-region {
-    font-size: .68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    color: #bbb;
-    margin-bottom: 16px;
-    text-align: center;
-  }
-
-  #panel-desc {
-    font-size: .85rem;
-    color: #555;
-    font-style: italic;
-    text-align: center;
-    line-height: 1.6;
-    margin-bottom: 12px;
-  }
-
   #panel-note {
     font-size: .85rem;
     color: #444;
     text-align: center;
     line-height: 1.6;
     margin-bottom: 12px;
+  }
+
+  /* ── Examples ──────────────────────────────────────────── */
+  #panel-examples {
+    width: 100%;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #eee;
+  }
+  #examples-heading {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #bbb;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .example-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 8px;
+  }
+  .example-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .example-card img {
+    width: 56px; height: 56px;
+    object-fit: contain;
+  }
+  .example-card-name {
+    font-size: .65rem;
+    text-align: center;
+    color: #555;
+    line-height: 1.2;
+    word-break: break-word;
   }
 </style>
 </head>
@@ -190,9 +209,11 @@
   <div id="panel-body">
     <img id="panel-arms" src="" alt="Arms"/>
     <div id="panel-entity"></div>
-    <div id="panel-region"></div>
-    <div id="panel-desc"></div>
     <div id="panel-note"></div>
+    <div id="panel-examples" style="display:none">
+      <div id="examples-heading">Examples</div>
+      <div class="example-grid"></div>
+    </div>
   </div>
 </div>
 
@@ -314,15 +335,35 @@ function openPanel(feature) {
     entityEl.textContent = entityName;
   }
 
-  document.getElementById('panel-region').textContent = p.region || '';
-
-  const desc = document.getElementById('panel-desc');
-  desc.textContent   = p.wikidata_description || '';
-  desc.style.display = p.wikidata_description ? '' : 'none';
-
   const note = document.getElementById('panel-note');
   note.textContent   = p.note || '';
   note.style.display = p.note ? '' : 'none';
+
+  const examplesEl = document.getElementById('panel-examples');
+  const examples   = p.examples || [];
+  if (examples.length > 0) {
+    const grid = examplesEl.querySelector('.example-grid');
+    grid.innerHTML = '';
+    examples.forEach(ex => {
+      const card = document.createElement('div');
+      card.className = 'example-card';
+      if (ex.image_url) {
+        const img = document.createElement('img');
+        img.src     = ex.image_url;
+        img.alt     = ex.name || '';
+        img.loading = 'lazy';
+        card.appendChild(img);
+      }
+      const nameEl = document.createElement('div');
+      nameEl.className   = 'example-card-name';
+      nameEl.textContent = ex.name || '';
+      card.appendChild(nameEl);
+      grid.appendChild(card);
+    });
+    examplesEl.style.display = '';
+  } else {
+    examplesEl.style.display = 'none';
+  }
 
   panel.classList.add('open');
 }
